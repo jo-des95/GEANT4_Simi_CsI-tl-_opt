@@ -1,0 +1,35 @@
+# init_vis.mac - Enhanced Visualization
+# Use TSG driver since OGL is not available
+/vis/open TSG 600x600-0+0
+/vis/viewer/reset
+/vis/drawVolume
+/vis/viewer/set/viewpointThetaPhi 30 45
+/vis/viewer/zoom 1.5
+
+# Set volume colors
+/vis/geometry/set/colour World 0 0.9 0.9 0.9 0.1  # Light gray (air)
+/vis/geometry/set/colour Crystal 0 0.2 0.8 1.0 0.8  # Light blue (CsI)
+/vis/geometry/set/colour Glass 0 0.95 0.95 0.95 0.8  # Very light gray
+/vis/geometry/set/colour AlBack 0 0.7 0.7 0.7 1.0    # Medium gray
+
+# Show hidden edges and surfaces
+/vis/viewer/set/style surface
+/vis/viewer/set/hiddenEdge true
+/vis/viewer/set/hiddenMarker true
+
+# Add coordinate system
+/vis/scene/add/axes 0 0 0 20 cm
+
+# Enable trajectory drawing
+/vis/scene/add/trajectories smooth
+/vis/modeling/trajectories/create/drawByCharge
+/vis/modeling/trajectories/drawByCharge-0/default/setDrawStepPts true
+/vis/modeling/trajectories/drawByCharge-0/default/setStepPtsSize 2
+
+# Enable automatic refresh
+/vis/viewer/set/autoRefresh true
+/vis/scene/endOfEventAction accumulate 1000
+
+# Refresh view
+/vis/viewer/refresh
+

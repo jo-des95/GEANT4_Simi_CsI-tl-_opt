@@ -1,0 +1,12 @@
+# Simple test run
+/control/verbose 1
+/run/verbose 1
+
+# Turn off trajectory storage for performance
+/tracking/storeTrajectories 0
+
+# Initialize 
+/run/initialize
+
+# Run a few events to test
+/run/beamOn 500
