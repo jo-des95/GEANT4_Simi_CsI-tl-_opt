@@ -1,0 +1,31 @@
+#include "sensitive_detector.hh"
+#include "G4Step.hh"
+#include "G4Track.hh"
+#include "G4AnalysisManager.hh"
+#include "G4SystemOfUnits.hh"
+#include "G4EventManager.hh"
+
+SensitiveDetector::SensitiveDetector(G4String name) : G4VSensitiveDetector(name) {}
+
+SensitiveDetector::~SensitiveDetector() {}
+
+G4bool SensitiveDetector::ProcessHits(G4Step* step, G4TouchableHistory*) {
+    G4Track* track = step->GetTrack();
+    G4double edep = step->GetTotalEnergyDeposit();
+    if (edep == 0.) return false;
+
+    auto analysis = G4AnalysisManager::Instance();
+    G4int eventID = G4EventManager::GetEventManager()->GetConstCurrentEvent()->GetEventID();
+    G4int trackID = track->GetTrackID();
+    G4int parentID = track->GetParentID();
+    G4int pdg = track->GetDefinition()->GetPDGEncoding();
+
+    analysis->FillNtupleIColumn(0, 0, eventID);
+    analysis->FillNtupleIColumn(0, 1, trackID);
+    analysis->FillNtupleIColumn(0, 2, parentID);
+    analysis->FillNtupleIColumn(0, 3, pdg);
+    analysis->FillNtupleDColumn(0, 4, edep/MeV);
+    analysis->AddNtupleRow(0);
+
+    return true;
+}

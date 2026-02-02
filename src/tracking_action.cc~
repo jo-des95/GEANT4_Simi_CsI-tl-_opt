@@ -1,0 +1,25 @@
+#include "tracking_action.hh"
+#include "event_action.hh"
+#include "G4Track.hh"
+#include "G4ParticleDefinition.hh"
+#include "G4SystemOfUnits.hh"
+
+TrackingAction::TrackingAction(EventAction* eventAction)
+: G4UserTrackingAction(),
+  fEventAction(eventAction) {}
+
+TrackingAction::~TrackingAction() {}
+
+void TrackingAction::PreUserTrackingAction(const G4Track* track) {
+    // Αρχική ενέργεια μόνο για μιόνιο
+    if (track->GetDefinition()->GetParticleName() == "mu-") {
+        fEventAction->SetInitialMuonEnergy(track->GetKineticEnergy());
+    }
+}
+
+void TrackingAction::PostUserTrackingAction(const G4Track* track) {
+    // Τελική ενέργεια μόνο για μιόνιο
+    if (track->GetDefinition()->GetParticleName() == "mu-") {
+        fEventAction->SetFinalMuonEnergy(track->GetKineticEnergy());
+    }
+}

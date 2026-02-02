@@ -1,0 +1,87 @@
+#include "stepping_action.hh"
+#include "event_action.hh"
+#include "G4Step.hh"
+#include "G4Track.hh"
+#include "G4ParticleDefinition.hh"
+#include "G4SystemOfUnits.hh"
+#include "G4OpticalPhoton.hh"
+#include <map>
+#include <cmath>
+
+// Minimal tracking: only stuck counter
+static std::map<G4int, G4ThreeVector> g_lastPhotonPos;
+static std::map<G4int, G4int> g_stuckStepCounter;
+
+SteppingAction::SteppingAction(EventAction* eventAction)
+    : G4UserSteppingAction(),
+      fEventAction(eventAction)
+{}
+
+SteppingAction::~SteppingAction() {}
+
+void SteppingAction::UserSteppingAction(const G4Step* step)
+{
+    auto track = step->GetTrack();
+
+    // ===== OPTICAL PHOTON HANDLING ===================================
+    
+    if (track->GetDefinition() == G4OpticalPhoton::OpticalPhotonDefinition()) {
+
+        G4double time    = track->GetGlobalTime();
+        G4int    stepNum = track->GetCurrentStepNumber();
+        G4ThreeVector postPos = step->GetPostStepPoint()->GetPosition();
+        G4int photonID = track->GetTrackID();
+
+        // ===== DETECT STUCK PHOTONS (OSCILLATIONS) =======================================
+        
+        if (g_lastPhotonPos.find(photonID) != g_lastPhotonPos.end()) {
+            G4double dist_to_last = (postPos - g_lastPhotonPos[photonID]).mag();
+            
+            // If step is tiny (<0.3mm), count as stuck
+            if (dist_to_last < 0.3 * mm) {
+                g_stuckStepCounter[photonID]++;
+                
+                // Kill if stuck (>10 tiny steps)
+                if (g_stuckStepCounter[photonID] > 10) {
+                    g_lastPhotonPos.erase(photonID);
+                    g_stuckStepCounter.erase(photonID);
+                    track->SetTrackStatus(fStopAndKill);
+                    return;
+                }
+            } else {
+                // Good step - reset counter
+                g_stuckStepCounter[photonID] = 0;
+            }
+        }
+        
+        // Update last position
+        g_lastPhotonPos[photonID] = postPos;
+
+        // ===== TIME/STEP LIMITS ==========================================
+        // Kill photons that take too long (prevent runaway tracking)
+        if (time > 5.*microsecond || stepNum > 100000) {
+            g_lastPhotonPos.erase(photonID);
+            g_stuckStepCounter.erase(photonID);
+            track->SetTrackStatus(fStopAndKill);
+            return;
+        }
+    }
+
+    // ===== ENERGY DEPOSITION TRACKING ==========================================
+
+    G4double edep = step->GetTotalEnergyDeposit();
+
+    // Only process steps with energy deposition
+    if (edep <= 0.) return;
+
+    // Get position and add to event accumulation
+    auto prePoint = step->GetPreStepPoint()->GetPosition();
+    fEventAction->AddEdep(edep,
+                          prePoint.x(),
+                          prePoint.y(),
+                          prePoint.z());
+
+    // Track length accumulation
+    G4double stepLength = step->GetStepLength();
+    fEventAction->AddTrackLength(stepLength);
+}

@@ -1,0 +1,126 @@
+#include "primary_generator.hh"
+
+#include "G4ParticleTable.hh"
+#include "G4ParticleDefinition.hh"
+#include "G4SystemOfUnits.hh"
+#include "Randomize.hh"
+#include "G4MuonMinus.hh"
+#include "G4RunManager.hh"
+#include "event_action.hh"
+#include <vector>
+#include <cmath>
+
+PrimaryGenerator::PrimaryGenerator()
+: G4VUserPrimaryGeneratorAction()
+{
+    fParticleGun = new G4ParticleGun(1);
+}
+
+PrimaryGenerator::~PrimaryGenerator()
+{
+    delete fParticleGun;
+}
+
+void PrimaryGenerator::GeneratePrimaries(G4Event* event)
+{
+    auto* muon = G4MuonMinus::Definition();
+    fParticleGun->SetParticleDefinition(muon);
+    
+    // ====== COSMIC RAY ENERGY SPECTRUM (από τον πίνακά σου) ======
+    
+    // Energy bin edges σε GeV: [0, 0.5, 1, 5, 10, 50, 200]
+    static const std::vector<G4double> Eedges = {
+        0.0*GeV, 0.5*GeV, 1.0*GeV, 5.0*GeV, 10.0*GeV, 50.0*GeV, 200.0*GeV
+    };
+    
+    // Επιλογή μεταξύ "flux" (Table 7) ή "count" (Table 8)
+    const G4String mode = "flux"; // Αλλάξε σε "count" αν θέλεις Table 8
+    
+    std::vector<G4double> weights;
+    if (mode == "flux") {
+        // Muon flux ανά bin από Table 7: [0-0.5, 0.5-1, 1-5, 5-10, 10-50, >50]
+        weights = {20.9, 23.7, 94.2, 32.1, 25.3, 2.26};
+    } else {
+        // Expected counts για 3 χρόνια από Table 8: ίδια bins
+        weights = {1.98e9, 2.24e9, 8.91e9, 3.03e9, 2.39e9, 2.14e8};
+    }
+    
+    // Δημιουργία Cumulative Distribution Function (CDF)
+    std::vector<G4double> cdf(weights.size(), 0.0);
+    G4double sumw = 0.0;
+    for (auto w : weights) sumw += w;
+    
+    G4double acc = 0.0;
+    for (size_t i = 0; i < weights.size(); ++i) {
+        acc += weights[i] / sumw;
+        cdf[i] = acc;
+    }
+    
+    // Επιλογή energy bin
+    G4double u = G4UniformRand();
+    size_t ibin = 0;
+    while (ibin < cdf.size() && u > cdf[ibin]) ++ibin;
+    if (ibin >= weights.size()) ibin = weights.size() - 1;
+    
+    // Δειγματοληψία ενέργειας μέσα στο επιλεγμένο bin
+    G4double Emin = Eedges[ibin];
+    G4double Emax = Eedges[ibin + 1];
+    
+    G4double energy = 0.0;
+    
+    // Για το τελευταίο bin (>50 GeV), χρήση εκθετικής κατανομής
+    if (ibin == weights.size() - 1) {
+        // Εκθετική με κλίμακα 20 GeV, περικομμένη στα 200 GeV
+        const G4double E0 = 20.0*GeV;
+        G4double u2 = G4UniformRand();
+        
+        // Αντίστροφη CDF εκθετικής κατανομής στο [Emin, Emax]
+        G4double A = std::exp(-Emin/E0) - std::exp(-Emax/E0);
+        energy = -E0 * std::log(std::exp(-Emin/E0) - u2*A);
+    } else {
+        // Ομοιόμορφη κατανομή μέσα στο bin
+        energy = Emin + (Emax - Emin) * G4UniformRand();
+    }
+    
+    fParticleGun->SetParticleEnergy(energy);
+    
+    // ====== ΔΕΣΜΗ GEOMETRY (όπως στον αρχικό σου κώδικα) ======
+    
+    // ΔΕΣΜΗ: Κάθετη κατεύθυνση (από πάνω προς τα κάτω)
+    // Μικρή τυχαία απόκλιση για πιο ρεαλιστική δέσμη
+    G4double beam_divergence = 2.0*deg;  // ±2° απόκλιση
+    G4double theta = G4UniformRand() * beam_divergence - beam_divergence/2.0;
+    G4double phi = G4UniformRand() * 360*deg;
+    
+    // Κατεύθυνση: κυρίως προς -Y (από πάνω προς κάτω)
+    fParticleGun->SetParticleMomentumDirection({
+        std::sin(theta)*std::cos(phi),
+        -std::cos(theta),  // Κυρίως προς -Y (κάτω)
+        std::sin(theta)*std::sin(phi)
+    });
+    
+    // ΔΕΣΜΗ: Μικρή περιοχή πάνω από τον κρύσταλο
+    G4double beam_radius = 1.0*cm;  // Ακτίνα δέσμης 1 cm
+    G4double beam_x = G4UniformRand() * 2*beam_radius - beam_radius; // ±1 cm
+    G4double beam_z = +1*cm + (G4UniformRand() * 2*beam_radius - beam_radius); // γύρω από -12 cm
+    G4double beam_y = 8.1*cm;  // 30 cm πάνω από τον κρύσταλο
+    
+    fParticleGun->SetParticlePosition({beam_x, beam_y, beam_z});
+    
+    fParticleGun->GeneratePrimaryVertex(event);
+    
+    // Record initial muon energy
+    const auto* ue = G4RunManager::GetRunManager()->GetUserEventAction();
+    auto* ea = const_cast<EventAction*>(
+        dynamic_cast<const EventAction*>(ue));
+    if (ea) {
+        ea->SetInitialMuonEnergy(energy);
+    }
+    
+    // Debug output για τα πρώτα 5 events
+    if (event->GetEventID() < 5) {
+        G4cout << "🌟 Event " << event->GetEventID() 
+               << ": Muon Energy = " << energy/GeV << " GeV"
+               << " (bin " << ibin << ")" << G4endl;
+    }
+}

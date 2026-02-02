@@ -1,0 +1,34 @@
+#include "action_initialization.hh"
+#include "run_action.hh"
+#include "event_action.hh"
+#include "stepping_action.hh"
+#include "tracking_action.hh"
+
+ActionInitialization::ActionInitialization()
+: G4VUserActionInitialization()
+{}
+
+ActionInitialization::~ActionInitialization()
+{}
+
+void ActionInitialization::BuildForMaster() const
+{
+    // Στον master thread συνήθως μόνο το RunAction χρειάζεται
+    SetUserAction(new RunAction());
+}
+
+void ActionInitialization::Build() const
+{
+    // Δημιουργούμε EventAction
+    auto eventAction = new EventAction();
+    SetUserAction(eventAction);
+
+    // RunAction
+    SetUserAction(new RunAction());
+
+    // SteppingAction με EventAction για να γεμίζει hits
+    SetUserAction(new SteppingAction(eventAction));
+
+    // TrackingAction με EventAction για να καταγράφει αρχική και τελική ενέργεια muon
+    SetUserAction(new TrackingAction(eventAction));
+}

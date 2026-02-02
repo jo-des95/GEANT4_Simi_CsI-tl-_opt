@@ -1,0 +1,40 @@
+
+#include "G4MTRunManager.hh"
+#include "G4UImanager.hh"
+#include "G4VisExecutive.hh"
+#include "G4UIExecutive.hh"
+#include "detector_construction.hh"
+#include "action_initialization.hh"
+#include "PhysicsList.hh"
+
+int main(int argc, char** argv) {
+    // Setup Run Manager
+    auto runManager = new G4MTRunManager;
+    runManager->SetNumberOfThreads(1);
+
+    // Initializations
+    runManager->SetUserInitialization(new DetectorConstruction());
+    runManager->SetUserInitialization(new PhysicsList());
+    runManager->SetUserInitialization(new ActionInitialization());
+    runManager->Initialize();
+
+    // Visualization
+    auto visMgr = new G4VisExecutive;
+    visMgr->Initialize();
+
+    // UI
+    G4UIExecutive* ui = nullptr;
+    if (argc == 1) {
+        ui = new G4UIExecutive(argc, argv);
+        G4UImanager::GetUIpointer()->ApplyCommand("/control/execute init_vis.mac");
+    } else {
+        G4UImanager::GetUIpointer()->ApplyCommand("/control/execute " + G4String(argv[1]));
+    }
+
+    if (ui) ui->SessionStart();
+
+    // Cleanup
+    delete visMgr;
+    delete runManager;
+    return 0;
+}
