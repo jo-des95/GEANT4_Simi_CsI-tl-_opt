@@ -1,0 +1,3 @@
+/home/giannis-fyst/CsI_Simulation_optical/build/CMakeFiles/csi_sim.dir
+/home/giannis-fyst/CsI_Simulation_optical/build/CMakeFiles/edit_cache.dir
+/home/giannis-fyst/CsI_Simulation_optical/build/CMakeFiles/rebuild_cache.dir
