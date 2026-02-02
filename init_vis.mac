@@ -1,35 +1,44 @@
-# init_vis.mac - Enhanced Visualization
-# Use TSG driver since OGL is not available
-/vis/open TSG 600x600-0+0
+# init_vis.mac - TSG-compatible version with transparent glass and colored particles
+
+/vis/open TSG 900x900-0+0
 /vis/viewer/reset
 /vis/drawVolume
 /vis/viewer/set/viewpointThetaPhi 30 45
-/vis/viewer/zoom 1.5
+/vis/viewer/zoom 1.6
 
-# Set volume colors
-/vis/geometry/set/colour World 0 0.9 0.9 0.9 0.1  # Light gray (air)
-/vis/geometry/set/colour Crystal 0 0.2 0.8 1.0 0.8  # Light blue (CsI)
-/vis/geometry/set/colour Glass 0 0.95 0.95 0.95 0.8  # Very light gray
-/vis/geometry/set/colour AlBack 0 0.7 0.7 0.7 1.0    # Medium gray
+# --- Geometry colors ---
+/vis/geometry/set/colour World 0.8 0.95 0.95 0.05          # Almost invisible world
+/vis/geometry/set/colour Crystal 0.0 0.0 0.8 0.9             # Dark blueCsI(Tl)
+/vis/geometry/set/colour FullWrapper 0.3 0.3 0.3 1.0         # Dark gray aluminum wrap
+/vis/geometry/set/colour SmallBaseCover 0.3 0.3 0.3 1.0      # Same dark gray
+/vis/geometry/set/colour AlBackPanel 0.3 0.3 0.3 1.0         # Same dark gray
+/vis/geometry/set/colour GlassWindow 0.9 0.95 1.0 0.15       # Transparent glass
 
-# Show hidden edges and surfaces
+# --- Viewer settings ---
 /vis/viewer/set/style surface
 /vis/viewer/set/hiddenEdge true
 /vis/viewer/set/hiddenMarker true
-
-# Add coordinate system
 /vis/scene/add/axes 0 0 0 20 cm
 
-# Enable trajectory drawing
+# --- Trajectories ---
 /vis/scene/add/trajectories smooth
-/vis/modeling/trajectories/create/drawByCharge
-/vis/modeling/trajectories/drawByCharge-0/default/setDrawStepPts true
-/vis/modeling/trajectories/drawByCharge-0/default/setStepPtsSize 2
+/vis/modeling/trajectories/create/drawByParticleID
+/vis/modeling/trajectories/drawByParticleID-0/default/setDrawStepPts true
+/vis/modeling/trajectories/drawByParticleID-0/default/setStepPtsSize 2
 
-# Enable automatic refresh
+# Particle colors
+/vis/modeling/trajectories/drawByParticleID-0/set opticalphoton white
+/vis/modeling/trajectories/drawByParticleID-0/set mu- red
+/vis/modeling/trajectories/drawByParticleID-0/set mu+ red
+/vis/modeling/trajectories/drawByParticleID-0/set e- green
+/vis/modeling/trajectories/drawByParticleID-0/set e+ green
+/vis/modeling/trajectories/drawByParticleID-0/set gamma yellow
+
+# --- Hits visualization ---
+/vis/scene/add/hits
+
+# --- Refresh and event accumulation ---
 /vis/viewer/set/autoRefresh true
-/vis/scene/endOfEventAction accumulate 1000
-
-# Refresh view
+/vis/scene/endOfEventAction accumulate 500
 /vis/viewer/refresh
 
